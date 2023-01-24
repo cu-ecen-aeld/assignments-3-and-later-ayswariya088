@@ -1,35 +1,40 @@
 #!/bin/bash
+# File Name: finder.sh
+# File Description: This script checks whether the required string exists inside the given file directory
+# Author :Ayswariya Kannan 
 
-# file: finder.sh
-# This script checks whether the required string exists inside the given file directory
-# AESD Assignment-1
-#Input arguments
+#Defining the input Arguments 
 filesdir=$1
 searchstr=$2
 
-# Checking for a valid number of arguments
+# condition to check for a valid no of arguments
 if [ $# -ne 2 ]
 then
-    echo "Invalid No. of arguments"
+    echo "ERROR :Invalid No. of arguments"
+    echo "Specify path of the directory and the string to be searched"
     exit 1
 
-# Search whether the file directory actually exists
-elif [ -d "$filesdir" ]
-then  #if it exists search for the string
+# condition to check whether the file directory actually exists
+else 
+    if [ -d "$filesdir" ]
+        then  #if it exists search for the string
 
-    # Counting number of lines that have the string
-    n_line=$(grep -r ${searchstr} ${filesdir} | wc -l)
+                # Counting number of lines that have the string
+                # -r recursive search
+                # wc -l cmd counts no of lines in the output
+                n_line=$(grep -r ${searchstr} ${filesdir} | wc -l)
 
-    # Counting number of files that have the string
-    n_file=$(grep -lr ${searchstr} ${filesdir} | wc -l)
-    
-    echo "The number of files are $n_file and the number of matching lines are $n_line"
-    exit 0
+                # Counting number of files that have the string
+                n_file=$(grep -lr ${searchstr} ${filesdir} | wc -l)
+                
+                echo "The number of files are $n_file and the number of matching lines are $n_line"
+                exit 0
 
 # Error printed in case the path is not found   
 else
-    echo '$filesdir does not represent a directory on the filesystem'
+    echo " ERROR: $filesdir does not represent a directory on the filesystem"
     exit 1
     
+fi
 fi
 
