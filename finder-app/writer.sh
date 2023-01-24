@@ -19,7 +19,7 @@ else
     # create the directory variable
     dir_name=$(dirname "${writefile}")
 
-    # check if directory exists, else create the directory
+    # check if directory exists, else create directory
     if [ ! -d "$dir_name" ]
     then
         mkdir -p $dir_name
