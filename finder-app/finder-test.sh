@@ -47,9 +47,10 @@ then
 	else
 		exit 1
 	fi
+#comment it out 3 lines for assignment 3 part 1
 #echo "Removing the old writer utility and compiling as a native application"
-	make clean
-	make
+#make clean
+#make
 fi
 
 for i in $( seq 1 $NUMFILES)
