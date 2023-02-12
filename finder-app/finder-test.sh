@@ -8,9 +8,9 @@ set -u
 NUMFILES=10
 WRITESTR=AELD_IS_FUN
 WRITEDIR=/tmp/aeld-data
-username=$(cat conf/username.txt)
-
-if [ $# -lt 2 ]; then
+#username=$(cat conf/username.txt)
+username=$(cat /etc/finder-app/conf/username.txt)
+if [ $# -lt 3 ]; then
 	echo "Using default value ${WRITESTR} for string to write"
 	if [ $# -lt 1 ]; then
 		echo "Using default value ${NUMFILES} for number of files to write"
@@ -20,7 +20,7 @@ if [ $# -lt 2 ]; then
 else
 	NUMFILES=$1
 	WRITESTR=$2
-	
+	WRITEDIR=/tmp/aeld-data/$3
 fi
 
 MATCHSTR="The number of files are ${NUMFILES} and the number of matching lines are ${NUMFILES}"
@@ -45,10 +45,15 @@ fi
 #make
 
 for i in $(seq 1 $NUMFILES); do
-	./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+	writer "$WRITEDIR/${username}$i.txt" "$WRITESTR" #changed writer as included in path
 done
 
-OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+#OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+OUTPUTSTRING=$(finder.sh "$WRITEDIR" "$WRITESTR") 		#removed ./ as it is added in path
+
+FINDEROP=/tmp/assignment4-result.txt
+
+echo ${OUTPUTSTRING} > ${FINDEROP}
 
 # remove temporary directories
 rm -rf /tmp/aeld-data
