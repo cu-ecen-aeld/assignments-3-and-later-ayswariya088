@@ -8,7 +8,7 @@ CC	:=	$(CROSS_COMPILE)gcc
 
 #Else it will run with CC=gcc
 
-$(TARGET_FILE) : writer.c	
+all: writer.c	
 	$(CC) -o writer writer.c $(CFLAGS)  
 
 clean:
