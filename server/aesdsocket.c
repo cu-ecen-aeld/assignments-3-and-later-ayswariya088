@@ -3,7 +3,10 @@
  * @File Description: (implementation of IPC communication using sockets)
  * @Author Name (AYSWARIYA KANNAN)
  * @Date (02/24/2023)
- * @Attributions
+ * @Attributions :https://www.binarytides.com/socket-programming-c-linux-tutorial/
+ * 				  https://www.tutorialspoint.com/c_standard_library/c_function_strerror.htm
+ *                https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
+ * 				  https://www.geeksforgeeks.org/socket-programming-cc/
  */
 
 #include <stdio.h>
@@ -20,7 +23,7 @@
 #include <signal.h>
 #include <arpa/inet.h>
 
-/**********************/
+/*************************************************/
 #define MAX_BACKLOG (10)
 #define BUFFER_SIZE (100)
 
@@ -317,7 +320,7 @@ void socket_connect()
 		}
 
 		close(file_fd);
-		free(output_buffer);
+		free(output_buffer);//freeing output and send buffer
 		free(send_buffer);
 		// closing the connection
 		syslog(LOG_DEBUG, "Closing connection from %s", addr_ip);
