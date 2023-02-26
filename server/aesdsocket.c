@@ -122,8 +122,8 @@ void socket_connect()
 	socklen_t client_size;		  // size of sockaddr
 	char buff[BUFFER_SIZE] = {0}; // buffer to receive input string
 	memset(buff, 0, BUFFER_SIZE);
-	char addr_ip[INET_ADDRSTRLEN]; // to save the ip address
-	int data_count = 0;			   // for counting the data packet bytes
+	char addr_ip[INET6_ADDRSTRLEN]; // to save the ip address
+	int data_count = 0;				// for counting the data packet bytes
 
 	// Step-1 Initilaizing the  sockaddr using getaddrinfo
 
@@ -214,9 +214,24 @@ void socket_connect()
 		}
 		// to get the client address in a readable format
 
-		struct sockaddr_in *addr_read = (struct sockaddr_in *)&client_add;
-		inet_ntop(AF_INET, &(addr_read->sin_addr), addr_ip, INET_ADDRSTRLEN);
-
+		// to get ip address of client checking if its of ipv4 or ipv6
+		switch (client_add.sa_family)
+		{
+		case AF_INET:
+		{
+			struct sockaddr_in *addr_in = (struct sockaddr_in *)&client_add;
+			inet_ntop(AF_INET, &(addr_in->sin_addr), addr_ip, INET_ADDRSTRLEN);
+			break;
+		}
+		case AF_INET6:
+		{
+			struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&client_add;
+			inet_ntop(AF_INET6, &(addr_in6->sin6_addr), addr_ip, INET6_ADDRSTRLEN);
+			break;
+		}
+		default:
+			break;
+		}
 		// Printing the client connection and IP address
 		syslog(LOG_DEBUG, "Connection succesful. Accepting connection from %s", addr_ip);
 		printf("Connection succesful.Accepting connection from %s\n", addr_ip);
@@ -339,6 +354,6 @@ void socket_connect()
 		printf("Closed connection from %s\n", addr_ip);
 	}
 
-	close(accept_fd); //closing fds
+	close(accept_fd); // closing fds
 	close(socket_fd);
 }
