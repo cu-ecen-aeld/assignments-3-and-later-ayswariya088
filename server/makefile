@@ -8,8 +8,10 @@ CFLAGS:=-Werror -Wall -g
 
 #Else it will run with CC=gcc
 
+default:aesdsocket
+all: aesdsocket
 
-all: aesdsocket.c
+aesdsocket:aesdsocket.c
 	$(CC) -o aesdsocket aesdsocket.c  $(CFLAGS)  
 
 clean:

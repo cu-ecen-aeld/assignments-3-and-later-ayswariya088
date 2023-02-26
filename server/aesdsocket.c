@@ -1,4 +1,4 @@
-/*
+/**********************************************************************************************************************************
  * @File name (aesdsocket.c)
  * @File Description: (implementation of IPC communication using sockets)
  * @Author Name (AYSWARIYA KANNAN)
@@ -7,7 +7,7 @@
  * 				  https://www.tutorialspoint.com/c_standard_library/c_function_strerror.htm
  *                https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
  * 				  https://www.geeksforgeeks.org/socket-programming-cc/
- */
+ **************************************************************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,18 +24,22 @@
 #include <arpa/inet.h>
 
 /*************************************************/
+
 #define MAX_BACKLOG (10)
 #define BUFFER_SIZE (100)
 
-/*** GLOBALS *******************************/
+/*** GLOBALS *********************************************/
 char *server_port = "9000";					 // given port for communication
 char *file_data = "/var/tmp/aesdsocketdata"; // file to save input string
-char *output_buffer = NULL;
+char *output_buffer = NULL;					 // output buffer for capturing input data
+char *send_buffer = NULL;					 // send buffer for sending data to client
+int socket_fd = 0;							 // socket file descriptor
+int accept_fd = 0;							 // client accept file descriptor
 
-int socket_fd = 0; // socket file descriptor
-int accept_fd = 0; // cleint accept file descriptor
+/*
+ *function description below where it is defined
+ */
 void socket_connect(void);
-
 
 /*SIGNAL HANDLER*/
 /*
@@ -51,14 +55,14 @@ void signal_handler(int signal_no)
 	{
 		printf("signal detected to exit\n");
 		syslog(LOG_DEBUG, "Caught the signal, exiting...");
-		unlink(file_data); // delete the file
-		free(output_buffer);
-		close(accept_fd);
+		unlink(file_data);	 // delete the file
+		free(output_buffer); // free output and send buffer
+		free(send_buffer);
+		close(accept_fd); // close fds
 		close(socket_fd);
 	}
 	exit(EXIT_SUCCESS);
 }
-
 
 /*MAIN FUNCTION*/
 /*
@@ -94,10 +98,11 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR, "failed to enter deamon mode %s", strerror(errno));
 		}
 	}
-	socket_connect();
-	closelog();
+	socket_connect(); // socket communication
+	closelog();		  // closing log after closing connection
 	return 0;
 }
+
 /*SOCKET COMMUNICATION FUNCTION*/
 /*
  * @function	:  To handle socket communication
@@ -107,7 +112,6 @@ int main(int argc, char *argv[])
  * @return		:  NULL
  *
  */
-
 void socket_connect()
 {
 
@@ -132,9 +136,9 @@ void socket_connect()
 	hints.ai_socktype = SOCK_STREAM;
 
 	printf("Assigning address for socket\n");
-	// getting address in res uding getaddrinfo
+	// getting address in res using getaddrinfo
 	int temp = getaddrinfo(NULL, server_port, &hints, &res);
-	if (temp != 0)
+	if (temp != 0) // generating error
 	{
 		printf("Error while allocating address for socket\n");
 		syslog(LOG_ERR, "Error while setting socket address= %s. Exiting.", strerror(errno));
@@ -144,17 +148,18 @@ void socket_connect()
 	// Step-2 Opening socket
 	printf("Opening socket\n");
 	socket_fd = socket(PF_INET6, SOCK_STREAM, 0); // IPv6 with type SOCK_STREAM and 0 protocol
-	if (socket_fd == -1)
+	if (socket_fd == -1)						  // generating error
 	{
 		printf("Error: Socket file descriptor not created\n");
 		syslog(LOG_ERR, "Error while setting socket= %s. Exiting.", strerror(errno));
 		freeaddrinfo(res);
 		exit(EXIT_FAILURE);
 	}
+
 	// Step-3 Binding to address
 	printf("Binding socket descriptor to address\n");
 	int temp2 = bind(socket_fd, res->ai_addr, res->ai_addrlen);
-	if (temp2 == -1)
+	if (temp2 == -1) // generating error
 	{
 		printf("Error: Binding with address failed\n");
 		syslog(LOG_ERR, "Error while binding socket= %s. Exiting.", strerror(errno));
@@ -163,8 +168,8 @@ void socket_connect()
 	}
 
 	// All recived data should be stored in the PATH file_data
-	int file_fd = creat(file_data, 0644);
-	if (file_fd == -1)
+	int file_fd = creat(file_data, 0644); // creating file if it doesn't exist with 644 permissions
+	if (file_fd == -1)					  // generating error
 	{
 		printf("Error while creating file \n");
 		syslog(LOG_ERR, "Error: File could not be created!= %s. Exiting...", strerror(errno));
@@ -190,7 +195,7 @@ void socket_connect()
 
 		// Listening for client
 		int temp_listen = listen(socket_fd, MAX_BACKLOG);
-		if (temp_listen == -1)
+		if (temp_listen == -1) // generating error
 		{
 			printf("Error while listening \n");
 			syslog(LOG_ERR, "Error: Listening failed =%s. Exiting ", strerror(errno));
@@ -201,23 +206,24 @@ void socket_connect()
 
 		// Accepting connection
 		accept_fd = accept(socket_fd, (struct sockaddr *)&client_add, &client_size);
-		if (accept_fd == -1)
+		if (accept_fd == -1) // generating error
 		{
 			printf("Error while accepting \n");
 			syslog(LOG_ERR, "Error: Accepting failed =%s. Exiting ", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		// to get the client address in a reaadble format
+		// to get the client address in a readable format
 
 		struct sockaddr_in *addr_read = (struct sockaddr_in *)&client_add;
 		inet_ntop(AF_INET, &(addr_read->sin_addr), addr_ip, INET_ADDRSTRLEN);
 
-		// Logging the client connection and address
+		// Printing the client connection and IP address
 		syslog(LOG_DEBUG, "Connection succesful. Accepting connection from %s", addr_ip);
 		printf("Connection succesful.Accepting connection from %s\n", addr_ip);
 
 		int i;
-		bool receive = false; // set the completion of packets
+		bool receive = false; // set the completion of packets to stop completion when
+
 		while (receive == false)
 		{
 
@@ -235,25 +241,27 @@ void socket_connect()
 
 			for (i = 0; i < BUFFER_SIZE; i++)
 			{
-				if (buff[i] == 10)
+				if (buff[i] == '\n') // when \n received means end of file
 				{
-					receive = true;
+					receive = true; // make the bool true to end the receiving loop
 					i++;
 					printf("data packet receiving completed\n");
 					syslog(LOG_DEBUG, "data packet received");
 					break;
 				}
 			}
-			data_count += i;
+			data_count += i; // increase data count for increasing packet size
+
+			// reallocate the buffer so as to accomodate the new data count
 			output_buffer = (char *)realloc(output_buffer, (data_count + 1));
 			if (output_buffer == NULL)
 			{
 				printf("buffer not created\n");
 				exit(EXIT_FAILURE);
 			}
-
+			// copy the buff to the output buffer of data count size
 			strncat(output_buffer, buff, i);
-			memset(buff, 0, BUFFER_SIZE);
+			memset(buff, 0, BUFFER_SIZE); // memset buffer with 0
 		}
 		char *s = output_buffer; // to print the input characters
 		while (*s != '\n')
@@ -262,23 +270,25 @@ void socket_connect()
 			s++;
 		}
 		printf("\n");
+
 		// writing data to the file given in the path
 		file_fd = open(file_data, O_APPEND | O_WRONLY);
-		if (file_fd == -1)
+		if (file_fd == -1) // generating errors
 		{
 			printf("Error: Opening file\n");
 			syslog(LOG_ERR, "Error: Opening file %s. Exiting ", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 
+		// Step-5 Writing to the file specified
 		int temp_write = write(file_fd, output_buffer, strlen(output_buffer));
-		if (temp_write == -1)
+		if (temp_write == -1) // generating errors
 		{
 			printf("Error: File failed to be written \n");
 			syslog(LOG_ERR, "Error:  File failed to be written= %s. Exiting ", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
-		else if (temp_write != strlen(output_buffer))
+		else if (temp_write != strlen(output_buffer)) // generating errors if partially written
 		{
 			printf("Error: File not completely written\n");
 			syslog(LOG_ERR, "Error: File not completely written=%s. Exiting ", strerror(errno));
@@ -290,29 +300,30 @@ void socket_connect()
 		// sending received data to the client back
 		memset(buff, 0, BUFFER_SIZE);
 		file_fd = open(file_data, O_RDONLY);
-		if (file_fd == -1)
+		if (file_fd == -1) // generating errors
 		{
 			printf("Error: Opening file\n");
 			syslog(LOG_ERR, "Error: Opening file %s. Exiting ", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 
-		char *send_buffer;
+		// Step-6 Reading from the file
 		send_buffer = (char *)malloc(sizeof(char) * (data_count + 1));
 		memset(send_buffer, 0, data_count + 1);
 
 		int temp_read = read(file_fd, send_buffer, data_count + 1);
 
-		if (temp_read == -1)
+		if (temp_read == -1) // generating errors
 		{
 			printf("Error: reading failed\n");
 			syslog(LOG_ERR, "Error:  read from file failed = %s. Exiting ", strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 
+		// Step-7 Sending to the client with the accept fd
 		printf("sending\n");
 		int temp_send = send(accept_fd, send_buffer, strlen(send_buffer), 0);
-		if (temp_send == -1)
+		if (temp_send == -1) // generating errors
 		{
 			printf("Error: sending failed\n");
 			syslog(LOG_ERR, "Error:  sending to client failed= %s. Exiting ", strerror(errno));
@@ -320,12 +331,14 @@ void socket_connect()
 		}
 
 		close(file_fd);
-		free(output_buffer);//freeing output and send buffer
+		free(output_buffer); // freeing output and send buffer
 		free(send_buffer);
+
 		// closing the connection
 		syslog(LOG_DEBUG, "Closing connection from %s", addr_ip);
 		printf("Closed connection from %s\n", addr_ip);
 	}
-	close(accept_fd);
+
+	close(accept_fd); //closing fds
 	close(socket_fd);
 }
