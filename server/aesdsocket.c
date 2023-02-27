@@ -122,8 +122,7 @@ void socket_connect()
 	socklen_t client_size;		  // size of sockaddr
 	char buff[BUFFER_SIZE] = {0}; // buffer to receive input string
 	memset(buff, 0, BUFFER_SIZE);
-	char addr_ip[INET6_ADDRSTRLEN]; // to save the ip address
-	int data_count = 0;				// for counting the data packet bytes
+	int data_count = 0; // for counting the data packet bytes
 
 	// Step-1 Initilaizing the  sockaddr using getaddrinfo
 
@@ -132,7 +131,7 @@ void socket_connect()
 
 	// set all the hint parameters then
 	hints.ai_flags = AI_PASSIVE;
-	hints.ai_family = AF_INET6;
+	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 
 	printf("Assigning address for socket\n");
@@ -147,8 +146,8 @@ void socket_connect()
 
 	// Step-2 Opening socket
 	printf("Opening socket\n");
-	socket_fd = socket(PF_INET6, SOCK_STREAM, 0); // IPv6 with type SOCK_STREAM and 0 protocol
-	if (socket_fd == -1)						  // generating error
+	socket_fd = socket(PF_INET, SOCK_STREAM, 0); // IP family with type SOCK_STREAM and 0 protocol
+	if (socket_fd == -1)						 // generating error
 	{
 		printf("Error: Socket file descriptor not created\n");
 		syslog(LOG_ERR, "Error while setting socket= %s. Exiting.", strerror(errno));
@@ -213,26 +212,9 @@ void socket_connect()
 			exit(EXIT_FAILURE);
 		}
 		// to get the client address in a readable format
+		struct sockaddr_in *addr_in = (struct sockaddr_in *)&client_add;
+		char *addr_ip = inet_ntoa(addr_in->sin_addr); // using inet_ntoa function
 
-		// to get ip address of client checking if its of ipv4 or ipv6
-		switch (client_add.sa_family)
-		{
-		case AF_INET:
-		{
-			struct sockaddr_in *addr_in = (struct sockaddr_in *)&client_add;
-			inet_ntop(AF_INET, &(addr_in->sin_addr), addr_ip, INET_ADDRSTRLEN);
-			break;
-		}
-		case AF_INET6:
-		{
-			struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&client_add;
-			inet_ntop(AF_INET6, &(addr_in6->sin6_addr), addr_ip, INET6_ADDRSTRLEN);
-			break;
-		}
-		default:
-			break;
-		}
-		// Printing the client connection and IP address
 		syslog(LOG_DEBUG, "Connection succesful. Accepting connection from %s", addr_ip);
 		printf("Connection succesful.Accepting connection from %s\n", addr_ip);
 
