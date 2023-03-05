@@ -1,15 +1,21 @@
-TARGET_FILE = aesdsocket
-#CROSS_COMPILE = aarch64-none-linux-gnu-
-#if CROSS_COMPILE SPECIFIED IN COMMAND LINE
+#Make file to compile aesdsocket
 
+CROSS_COMPILE=
 
-CC	  :=$(CROSS_COMPILE)gcc
-CFLAGS:=-Werror -Wall -g
+ifeq ($(CC),)
+	CC = $(CROSS_COMPILE)gcc
+endif
+ifeq ($(CFLAGS),)
+	CFLAGS = -g -Wall -Werror
+endif
+ifeq ($(LDFLAGS),)
+	LDFLAGS = -pthread -lrt
+endif
 
-#Else it will run with CC=gcc
+all: aesdsocket
 
-all: aesdsocket.c
-	$(CC) -o aesdsocket aesdsocket.c  $(CFLAGS)  
+aesdsocket: aesdsocket.c
+	$(CC) $(CFLAGS) $^ -o $@ $(INCLUDES) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET_FILE) *.o
+	rm -rf aesdsocket
