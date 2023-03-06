@@ -37,7 +37,7 @@ int accept_fd = 0;							 // client accept file descriptor
 int data_count = 0;							 // for counting the data packet bytes
 int file_fd = 0;							 // file as defined in path to be created
 bool process_flag = false;
-int deamon_flag =0;
+int deamon_flag = 0;
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
@@ -149,7 +149,12 @@ static void *timer_handler(void *signalno)
 			exit(EXIT_FAILURE);
 		}
 
-		write(file_fd, time_stamp, timer_len);
+		int write_ret = write(file_fd, time_stamp, timer_len);
+		if (write_ret == -1)
+		{
+			printf("Error write\n");
+			exit(EXIT_FAILURE);
+		}
 
 		/*update the global packet size variable, as this is used for reading and sending data
 		to client*/
@@ -198,7 +203,7 @@ int main(int argc, char *argv[])
 		printf("Running in daemon mode!\n");
 		syslog(LOG_DEBUG, "aesdsocket entering daemon mode");
 
-		deamon_flag=1;
+		deamon_flag = 1;
 	}
 
 	socket_connect();
@@ -494,8 +499,12 @@ void *thread_handler(void *thread_parameter)
 		exit(1);
 	}
 
-	write(file_fd, output_buffer, strlen(output_buffer));
-
+	int writeret = write(file_fd, output_buffer, strlen(output_buffer));
+	if (writeret == -1)
+	{
+		printf("Error write\n");
+		exit(1);
+	}
 	close(file_fd);
 
 	memset(buff, 0, BUFFER_SIZE);
