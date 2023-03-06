@@ -40,6 +40,7 @@ bool process_flag = false;
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
+pthread_t timer_thread=(pthread_t)NULL;
 void exit_func(void);
 //  Thread parameter structure
 typedef struct
@@ -108,9 +109,12 @@ void signal_handler(int signal_no)
  * @return		:  NULL
  *
  */
-static void timer_handler(int signalno)
+static void *timer_handler(void *signalno)
 {
 
+while(1)
+    {
+       sleep(10);
 	/*first store the local time in a buffer*/
 	char time_stamp[200];
 	time_t timer_init;
@@ -160,10 +164,12 @@ static void timer_handler(int signalno)
 	if (ret)
 	{
 		printf("Mutex unlock error after write\n");
-		exit(EXIT_FAILURE);
+		pthread_exit(NULL);
 	}
-
+	
 	close(file_fd);
+	}
+	   pthread_exit(NULL);
 }
 /*
  * @function	: main fucntion for Socket based communication
@@ -188,7 +194,7 @@ int main(int argc, char *argv[])
 
 	// Timer configutaion for A6-P1
 	// registering signal handler for timer
-	signal(SIGALRM, timer_handler);
+	//signal(SIGALRM, timer_handler);
 
 	// Check the actual value of argv here:
 	if ((argc > 1) && (!strcmp("-d", (char *)argv[1])))
@@ -301,7 +307,7 @@ void socket_connect()
 	freeaddrinfo(res);
 
 	/*Timer handler part*/
-	struct itimerval timer_start;
+	/*struct itimerval timer_start;
 
 	timer_start.it_interval.tv_sec = 10; // timer interval of 10 secs
 	timer_start.it_interval.tv_usec = 0;
@@ -314,14 +320,19 @@ void socket_connect()
 	{
 		printf("Error:%s with timer \n", strerror(errno));
 		syslog(LOG_DEBUG, "Error while setting timer:%s", strerror(errno));
-	}
-
+	}*/
+ 	bool timer_thread_flag = false;
 	while (1)
 	{
 		if (process_flag == true)
 		{
 			exit_func();
 		}
+		 if(!timer_thread_flag)
+        {
+            pthread_create(&timer_thread,NULL,timer_handler,NULL);
+            timer_thread_flag = true;
+        }
 		// step-4 Listening for client
 		int temp_listen = listen(socket_fd, MAX_BACKLOG);
 		if (temp_listen == -1) // generating error
@@ -560,6 +571,12 @@ void exit_func(void)
 			break;
 		}
 	}
+	if(timer_thread)
+    {
+       pthread_join(timer_thread,NULL);
+
+    }
+
 	pthread_mutex_unlock(&mutex_lock);
 	pthread_mutex_destroy(&mutex_lock);
 	exit(EXIT_SUCCESS);
