@@ -36,12 +36,12 @@ int socket_fd = 0;							 // socket file descriptor
 int accept_fd = 0;							 // client accept file descriptor
 int data_count = 0;							 // for counting the data packet bytes
 int file_fd = 0;							 // file as defined in path to be created
-//bool process_flag = false;
-// Function prototypes
+bool process_flag = false;
+//  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
-//void exit_func(void);
-// Thread parameter structure
+void exit_func(void);
+//  Thread parameter structure
 typedef struct
 {
 	bool thread_complete;
@@ -62,8 +62,7 @@ typedef struct slist_data_s slist_data_t;
 slist_data_t *datap = NULL;
 pthread_mutex_t mutex_lock = PTHREAD_MUTEX_INITIALIZER;
 
-SLIST_HEAD(slisthead, slist_data_s)
-head; // Assigning head for struct
+SLIST_HEAD(slisthead, slist_data_s)head; // Assigning head for struct
 
 /*SIGNAL HANDLER*/
 /*
@@ -80,23 +79,23 @@ void signal_handler(int signal_no)
 	{
 		printf("signal detected to exit\n");
 		syslog(LOG_DEBUG, "Caught the signal, exiting...");
-	while (SLIST_FIRST(&head) != NULL)
-	{
-		SLIST_FOREACH(datap, &head, entries)
+		/*while (SLIST_FIRST(&head) != NULL)
 		{
-			close(datap->thread_socket.client_fd);
-			pthread_join(datap->thread_socket.thread_id, NULL);
-			SLIST_REMOVE(&head, datap, slist_data_s, entries);
-			free(datap);
-			break;
+			SLIST_FOREACH(datap, &head, entries)
+			{
+				close(datap->thread_socket.client_fd);
+				pthread_join(datap->thread_socket.thread_id, NULL);
+				SLIST_REMOVE(&head, datap, slist_data_s, entries);
+				free(datap);
+				break;
+			}
 		}
-	}
-	pthread_mutex_destroy(&mutex_lock);
-	unlink(file_data);
-	close(file_fd);
-	close(accept_fd);
-	close(socket_fd);
-	
+		pthread_mutex_destroy(&mutex_lock);*/
+		shutdown(socket_fd, SHUT_RDWR);
+		process_flag = true;
+		unlink(file_data);
+		close(accept_fd);
+		close(socket_fd);
 	}
 	_exit(0);
 }
@@ -165,7 +164,6 @@ static void timer_handler(int signalno)
 	}
 
 	close(file_fd);
-	// return param
 }
 /*
  * @function	: main fucntion for Socket based communication
@@ -320,10 +318,10 @@ void socket_connect()
 
 	while (1)
 	{
-		/*if (process_flag == true)
+		if (process_flag == true)
 		{
 			exit_func();
-		}*/
+		}
 		// step-4 Listening for client
 		int temp_listen = listen(socket_fd, MAX_BACKLOG);
 		if (temp_listen == -1) // generating error
@@ -368,7 +366,7 @@ void socket_connect()
 					   &datap->thread_socket			  // the thread parameter to be passed
 		);
 
-		printf("All thread created now waiting to exit\n");
+		printf("Threads created now waiting to exit\n");
 
 		SLIST_FOREACH(datap, &head, entries)
 		{
@@ -411,6 +409,7 @@ void *thread_handler(void *thread_parameter)
 	int ret = 0;
 	char buff[BUFFER_SIZE] = {0};
 	char *output_buffer = NULL;
+	char *send_buffer = NULL;
 
 	// get the parameter of the thread
 	thread_ipc *params = (thread_ipc *)thread_parameter;
@@ -428,7 +427,12 @@ void *thread_handler(void *thread_parameter)
 	/*Packet reception, detection and storage logic*/
 	while (packet_comp == false)
 	{
-
+	ret = pthread_mutex_lock(params->mutex);
+	if (ret)
+	{
+		printf("Mutex lock error before write\n");
+		exit(1);
+	}
 		// printf("Receiving data from descriptor:%d.\n",sfd);
 
 		ret_recv = recv(params->client_fd, buff, BUFFER_SIZE, 0); //**!check the flag
@@ -470,19 +474,10 @@ void *thread_handler(void *thread_parameter)
 			exit(1);
 		}
 
-		strncat(output_buffer, buff, i);
+		strncat(output_buffer, buff, j + 1);
 
 		memset(buff, 0, BUFFER_SIZE);
 	}
-
-	// Test
-	ret = pthread_mutex_lock(params->mutex);
-	if (ret)
-	{
-		printf("Mutex lock error before write\n");
-		exit(1);
-	}
-	// Test
 
 	// Step-6 Write the data received from client to the server
 
@@ -506,7 +501,7 @@ void *thread_handler(void *thread_parameter)
 		exit(1);
 	}
 	// Step-7 Reading from the file
-	char *send_buffer = (char *)malloc(sizeof(char) * (data_count + 1));
+	send_buffer = (char *)malloc(sizeof(char) * (data_count + 1));
 	memset(send_buffer, 0, data_count + 1);
 
 	int temp_read = read(file_fd, send_buffer, data_count + 1);
@@ -547,7 +542,7 @@ void *thread_handler(void *thread_parameter)
 
 	return params;
 }
-/*void exit_func(void)
+void exit_func(void)
 {
 
 	unlink(file_data);
@@ -565,6 +560,7 @@ void *thread_handler(void *thread_parameter)
 			break;
 		}
 	}
+	pthread_mutex_unlock(&mutex_lock);
 	pthread_mutex_destroy(&mutex_lock);
 	exit(EXIT_SUCCESS);
-}*/
+}
