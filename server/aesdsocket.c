@@ -155,17 +155,15 @@ static void *timer_handler(void *signalno)
 			printf("Error write\n");
 			exit(EXIT_FAILURE);
 		}
-
-		/*update the global packet size variable, as this is used for reading and sending data
-		to client*/
-		data_count += timer_len;
-
 		ret = pthread_mutex_unlock(&mutex_lock);
 		if (ret)
 		{
 			printf("Mutex unlock error after write\n");
 			pthread_exit(NULL);
 		}
+		/*update the global packet size variable, as this is used for reading and sending data
+		to client*/
+		data_count += timer_len;
 
 		close(file_fd);
 	}
@@ -310,12 +308,9 @@ void socket_connect()
 		}
 	}
 	bool timer_thread_flag = false;
-	while (1)
+	while (process_flag==false)
 	{
-		if (process_flag == true)
-		{
-			exit_func();
-		}
+		
 		if (!timer_thread_flag)
 		{
 			pthread_create(&timer_thread, NULL, timer_handler, NULL);
@@ -479,7 +474,7 @@ void *thread_handler(void *thread_parameter)
 			exit(1);
 		}
 
-		strncat(output_buffer, buff, j + 1);
+		strncat(output_buffer, buff, i + 1);
 
 		memset(buff, 0, BUFFER_SIZE);
 	}
@@ -505,9 +500,14 @@ void *thread_handler(void *thread_parameter)
 		printf("Error write\n");
 		exit(1);
 	}
-	close(file_fd);
 
-	memset(buff, 0, BUFFER_SIZE);
+	ret = pthread_mutex_unlock(params->mutex);
+	if (ret)
+	{
+		printf("Mutex unlock error after read/send\n");
+		exit(1);
+	}
+	close(file_fd);
 
 	file_fd = open(file_data, O_RDONLY);
 	if (file_fd == -1)
@@ -540,12 +540,6 @@ void *thread_handler(void *thread_parameter)
 	}
 	close(file_fd);
 
-	ret = pthread_mutex_unlock(params->mutex);
-	if (ret)
-	{
-		printf("Mutex unlock error after read/send\n");
-		exit(1);
-	}
 
 	params->thread_complete = true;
 
