@@ -37,10 +37,11 @@ int accept_fd = 0;							 // client accept file descriptor
 int data_count = 0;							 // for counting the data packet bytes
 int file_fd = 0;							 // file as defined in path to be created
 bool process_flag = false;
+int deamon_flag =0;
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
-pthread_t timer_thread=(pthread_t)NULL;
+pthread_t timer_thread = (pthread_t)NULL;
 void exit_func(void);
 //  Thread parameter structure
 typedef struct
@@ -63,7 +64,8 @@ typedef struct slist_data_s slist_data_t;
 slist_data_t *datap = NULL;
 pthread_mutex_t mutex_lock = PTHREAD_MUTEX_INITIALIZER;
 
-SLIST_HEAD(slisthead, slist_data_s)head; // Assigning head for struct
+SLIST_HEAD(slisthead, slist_data_s)
+head; // Assigning head for struct
 
 /*SIGNAL HANDLER*/
 /*
@@ -80,18 +82,6 @@ void signal_handler(int signal_no)
 	{
 		printf("signal detected to exit\n");
 		syslog(LOG_DEBUG, "Caught the signal, exiting...");
-		/*while (SLIST_FIRST(&head) != NULL)
-		{
-			SLIST_FOREACH(datap, &head, entries)
-			{
-				close(datap->thread_socket.client_fd);
-				pthread_join(datap->thread_socket.thread_id, NULL);
-				SLIST_REMOVE(&head, datap, slist_data_s, entries);
-				free(datap);
-				break;
-			}
-		}
-		pthread_mutex_destroy(&mutex_lock);*/
 		shutdown(socket_fd, SHUT_RDWR);
 		process_flag = true;
 		unlink(file_data);
@@ -112,68 +102,69 @@ void signal_handler(int signal_no)
 static void *timer_handler(void *signalno)
 {
 
-while(1)
-    {
-    for(int i=0;i<10;i++){
-		sleep(1);
-		if(process_flag==true)
-		break;
-	}
-	/*first store the local time in a buffer*/
-	char time_stamp[200];
-	time_t timer_init;
-	struct tm *tm_info;
-	int timer_len = 0;
-
-	timer_init = time(NULL);
-	tm_info = localtime(&timer_init);
-	if (tm_info == NULL)
+	while (1)
 	{
-		perror("Local timer error!");
-		exit(EXIT_FAILURE);
+		for (int i = 0; i < 10; i++)
+		{
+			sleep(1);
+			if (process_flag == true)
+				break;
+		}
+		/*first store the local time in a buffer*/
+		char time_stamp[200];
+		time_t timer_init;
+		struct tm *tm_info;
+		int timer_len = 0;
+
+		timer_init = time(NULL);
+		tm_info = localtime(&timer_init);
+		if (tm_info == NULL)
+		{
+			perror("Local timer error!");
+			exit(EXIT_FAILURE);
+		}
+
+		timer_len = strftime(time_stamp, sizeof(time_stamp), "timestamp:%d.%b.%y - %k:%M:%S\n", tm_info);
+		if (timer_len == 0)
+		{
+			perror("strftimer returned 0!");
+			exit(EXIT_FAILURE);
+		}
+
+		printf("timestamp:%s\n", time_stamp);
+
+		// writing to file
+
+		file_fd = open(file_data, O_APPEND | O_WRONLY);
+		if (file_fd == -1)
+		{
+			printf("Error opening\n");
+			exit(EXIT_FAILURE);
+		}
+
+		int ret = pthread_mutex_lock(&mutex_lock);
+		if (ret)
+		{
+			printf("Mutex lock error before write\n");
+			exit(EXIT_FAILURE);
+		}
+
+		write(file_fd, time_stamp, timer_len);
+
+		/*update the global packet size variable, as this is used for reading and sending data
+		to client*/
+		data_count += timer_len;
+
+		ret = pthread_mutex_unlock(&mutex_lock);
+		if (ret)
+		{
+			printf("Mutex unlock error after write\n");
+			pthread_exit(NULL);
+		}
+
+		close(file_fd);
 	}
-
-	timer_len = strftime(time_stamp, sizeof(time_stamp), "timestamp:%d.%b.%y - %k:%M:%S\n", tm_info);
-	if (timer_len == 0)
-	{
-		perror("strftimer returned 0!");
-		exit(EXIT_FAILURE);
-	}
-
-	printf("timestamp:%s\n", time_stamp);
-
-	// writing to file
-
-	file_fd = open(file_data, O_APPEND | O_WRONLY);
-	if (file_fd == -1)
-	{
-		printf("Error opening\n");
-		exit(EXIT_FAILURE);
-	}
-
-	int ret = pthread_mutex_lock(&mutex_lock);
-	if (ret)
-	{
-		printf("Mutex lock error before write\n");
-		exit(EXIT_FAILURE);
-	}
-
-	write(file_fd, time_stamp, timer_len);
-
-	/*update the global packet size variable, as this is used for reading and sending data
-	to client*/
-	data_count += timer_len;
-
-	ret = pthread_mutex_unlock(&mutex_lock);
-	if (ret)
-	{
-		printf("Mutex unlock error after write\n");
-		 pthread_exit(NULL);
-	}
-	
-	close(file_fd);
-	}
-	   pthread_exit(NULL);
+	pthread_exit(NULL);
 }
 /*
  * @function	: main fucntion for Socket based communication
@@ -198,7 +189,7 @@ int main(int argc, char *argv[])
 
 	// Timer configutaion for A6-P1
 	// registering signal handler for timer
-	//signal(SIGALRM, timer_handler);
+	// signal(SIGALRM, timer_handler);
 
 	// Check the actual value of argv here:
 	if ((argc > 1) && (!strcmp("-d", (char *)argv[1])))
@@ -207,13 +198,7 @@ int main(int argc, char *argv[])
 		printf("Running in daemon mode!\n");
 		syslog(LOG_DEBUG, "aesdsocket entering daemon mode");
 
-		// Enter daemon mode
-		int temp_daemon = daemon(0, 0);
-		if (temp_daemon == -1)
-		{
-			printf("Couldn't process into deamon mode\n");
-			syslog(LOG_ERR, "failed to enter deamon mode %s", strerror(errno));
-		}
+		deamon_flag=1;
 	}
 
 	socket_connect();
@@ -310,33 +295,27 @@ void socket_connect()
 	// free after use
 	freeaddrinfo(res);
 
-	/*Timer handler part*/
-	/*struct itimerval timer_start;
-
-	timer_start.it_interval.tv_sec = 10; // timer interval of 10 secs
-	timer_start.it_interval.tv_usec = 0;
-	timer_start.it_value.tv_sec = 10; // time expiration of 10 secs
-	timer_start.it_value.tv_usec = 0;
-
-	// arming the timer, choosing wall clock, not storing in old_value
-	int timeret = setitimer(ITIMER_REAL, &timer_start, NULL);
-	if (timeret == -1)
+	if (deamon_flag == 1)
 	{
-		printf("Error:%s with timer \n", strerror(errno));
-		syslog(LOG_DEBUG, "Error while setting timer:%s", strerror(errno));
-	}*/
- 	bool timer_thread_flag = false;
+		int temp_daemon = daemon(0, 0);
+		if (temp_daemon == -1)
+		{
+			printf("Couldn't process into deamon mode\n");
+			syslog(LOG_ERR, "failed to enter deamon mode %s", strerror(errno));
+		}
+	}
+	bool timer_thread_flag = false;
 	while (1)
 	{
 		if (process_flag == true)
 		{
 			exit_func();
 		}
-		 if(!timer_thread_flag)
-        {
-            pthread_create(&timer_thread,NULL,timer_handler,NULL);
-            timer_thread_flag = true;
-        }
+		if (!timer_thread_flag)
+		{
+			pthread_create(&timer_thread, NULL, timer_handler, NULL);
+			timer_thread_flag = true;
+		}
 		// step-4 Listening for client
 		int temp_listen = listen(socket_fd, MAX_BACKLOG);
 		if (temp_listen == -1) // generating error
@@ -368,8 +347,19 @@ void socket_connect()
 
 		// allocating new node for the data
 		datap = (slist_data_t *)malloc(sizeof(slist_data_t));
+		int ret = pthread_mutex_lock(&mutex_lock);
+		if (ret)
+		{
+			printf("Mutex lock error before insert\n");
+			exit(1);
+		}
 		SLIST_INSERT_HEAD(&head, datap, entries);
-
+		ret = pthread_mutex_unlock(&mutex_lock);
+		if (ret)
+		{
+			printf("Mutex lock error after insert\n");
+			exit(1);
+		}
 		// Inserting thread parameters now
 		datap->thread_socket.client_fd = accept_fd;
 		datap->thread_socket.thread_complete = false;
@@ -442,12 +432,7 @@ void *thread_handler(void *thread_parameter)
 	/*Packet reception, detection and storage logic*/
 	while (packet_comp == false)
 	{
-	ret = pthread_mutex_lock(params->mutex);
-	if (ret)
-	{
-		printf("Mutex lock error before write\n");
-		exit(1);
-	}
+
 		// printf("Receiving data from descriptor:%d.\n",sfd);
 
 		ret_recv = recv(params->client_fd, buff, BUFFER_SIZE, 0); //**!check the flag
@@ -482,7 +467,7 @@ void *thread_handler(void *thread_parameter)
 
 		/*reallocate to a larger buffer now as static buffer can
 			only accomodate upto fixed size*/
-		output_buffer = (char *)realloc(output_buffer, (j + 1));
+		output_buffer = (char *)realloc(output_buffer, (i + 1));
 		if (output_buffer == NULL)
 		{
 			printf("Realloc failed\n");
@@ -500,6 +485,12 @@ void *thread_handler(void *thread_parameter)
 	if (file_fd == -1)
 	{
 		printf("File open error for appending\n");
+		exit(1);
+	}
+	ret = pthread_mutex_lock(params->mutex);
+	if (ret)
+	{
+		printf("Mutex lock error before write\n");
 		exit(1);
 	}
 
@@ -575,11 +566,10 @@ void exit_func(void)
 			break;
 		}
 	}
-	if(timer_thread)
-    {
-       pthread_join(timer_thread,NULL);
-
-    }
+	if (timer_thread)
+	{
+		pthread_join(timer_thread, NULL);
+	}
 
 	pthread_mutex_unlock(&mutex_lock);
 	pthread_mutex_destroy(&mutex_lock);
