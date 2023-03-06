@@ -114,7 +114,11 @@ static void *timer_handler(void *signalno)
 
 while(1)
     {
-       sleep(10);
+    for(int i=0;i<10;i++){
+		sleep(1);
+		if(process_flag==true)
+		break;
+	}
 	/*first store the local time in a buffer*/
 	char time_stamp[200];
 	time_t timer_init;
