@@ -97,14 +97,6 @@ void signal_handler(int signal_no)
 	close(accept_fd);
 	close(socket_fd);
 	
-		/*A6 thread part graceful exit - free all the
-		thread parameters*/
-		/*if (shutdown(socket_fd, SHUT_RDWR) == -1)
-		{														// shutting down all communication in the socket
-			syslog(LOG_ERR, "error while handling signal\n\r"); // if -1 return means shutdown not happened
-		}
-		else
-			process_flag = true;*/
 	}
 	_exit(0);
 }
