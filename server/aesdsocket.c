@@ -1,12 +1,14 @@
-/*
-* Brief - Implements a "Native Socket Server" as mentioned in assignmented 6 part 1
-* 
-* Author - Deekshith Reddy Patil, patil.deekshithreddy@colorado.edu
-*
-* Reference -https://stackoverflow.com/questions/3060950/how-to-get-ip-address-from-sock-structure-in-c
-*           -https://stackoverflow.com/questions/17954432/creating-a-daemon-in-linux
-*           -https://stackoverflow.com/questions/24194961/how-do-i-use-setsockoptso-reuseaddr
-*/
+/**********************************************************************************************************************************
+ * @File name (aesdsocket.c)
+ * @File Description: (implementation of IPC communication using sockets for Assignment 6 P1)
+ * @Author Name (AYSWARIYA KANNAN)
+ * @Date (02/24/2023)
+ * @Attributions :https://www.binarytides.com/socket-programming-c-linux-tutorial/
+ * 				  https://www.tutorialspoint.com/c_standard_library/c_function_strerror.htm
+ *                https://stackoverflow.com/questions/1276294/getting-ipv4-address-from-a-sockaddr-structure
+ * 				  https://www.geeksforgeeks.org/socket-programming-cc/
+ **************************************************************************************************************************/
+
 
 #include <stdio.h> 
 #include <stdlib.h>

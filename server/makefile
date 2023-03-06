@@ -1,21 +1,12 @@
-#Make file to compile aesdsocket
-
-CROSS_COMPILE=
-
-ifeq ($(CC),)
-	CC = $(CROSS_COMPILE)gcc
-endif
-ifeq ($(CFLAGS),)
-	CFLAGS = -g -Wall -Werror
-endif
-ifeq ($(LDFLAGS),)
-	LDFLAGS = -pthread -lrt
-endif
-
 all: aesdsocket
 
+CROSS_COMPILE = 
+CC ?= $(CROSS_COMPILE)gcc
+
+LDFLAGS?= -lpthread -lrt
+
 aesdsocket: aesdsocket.c
-	$(CC) $(CFLAGS) $^ -o $@ $(INCLUDES) $(LDFLAGS)
+	$(CC) aesdsocket.c $(LDFLAGS) -Wall -Werror -g -o aesdsocket
 
 clean:
-	rm -rf aesdsocket
+	rm -rf *.o aesdsocket
