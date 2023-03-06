@@ -164,7 +164,7 @@ while(1)
 	if (ret)
 	{
 		printf("Mutex unlock error after write\n");
-		pthread_exit(NULL);
+		 pthread_exit(NULL);
 	}
 	
 	close(file_fd);
