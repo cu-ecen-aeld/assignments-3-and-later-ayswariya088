@@ -49,7 +49,7 @@ typedef struct
 	bool thread_complete;
 	pthread_t thread_id;
 	int client_fd;
-	pthread_mutex_t *mutex;
+	
 } thread_ipc;
 
 // Linked list node
@@ -104,12 +104,13 @@ static void *timer_handler(void *signalno)
 
 	while (1)
 	{
-		for (int i = 0; i < 10; i++)
+		/*for (int i = 0; i < 10; i++)
 		{
 			sleep(1);
 			if (process_flag == true)
 				break;
-		}
+		}*/
+		sleep(10);
 		/*first store the local time in a buffer*/
 		char time_stamp[200];
 		time_t timer_init;
@@ -150,16 +151,16 @@ static void *timer_handler(void *signalno)
 		}
 
 		int write_ret = write(file_fd, time_stamp, timer_len);
-		if (write_ret == -1)
-		{
-			printf("Error write\n");
-			exit(EXIT_FAILURE);
-		}
 		ret = pthread_mutex_unlock(&mutex_lock);
 		if (ret)
 		{
 			printf("Mutex unlock error after write\n");
-			pthread_exit(NULL);
+			exit(EXIT_FAILURE);
+		}
+		if (write_ret == -1)
+		{
+			printf("Error write\n");
+			exit(EXIT_FAILURE);
 		}
 		/*update the global packet size variable, as this is used for reading and sending data
 		to client*/
@@ -347,24 +348,13 @@ void socket_connect()
 
 		// allocating new node for the data
 		datap = (slist_data_t *)malloc(sizeof(slist_data_t));
-		int ret = pthread_mutex_lock(&mutex_lock);
-		if (ret)
-		{
-			printf("Mutex lock error before insert\n");
-			exit(1);
-		}
+		
 		SLIST_INSERT_HEAD(&head, datap, entries);
-		ret = pthread_mutex_unlock(&mutex_lock);
-		if (ret)
-		{
-			printf("Mutex lock error after insert\n");
-			exit(1);
-		}
+		
 		// Inserting thread parameters now
 		datap->thread_socket.client_fd = accept_fd;
 		datap->thread_socket.thread_complete = false;
-		datap->thread_socket.mutex = &mutex_lock;
-
+		
 		pthread_create(&(datap->thread_socket.thread_id), // the thread id to be created
 					   NULL,							  // the thread attribute to be passed
 					   thread_handler,					  // the thread handler to be executed
@@ -467,7 +457,7 @@ void *thread_handler(void *thread_parameter)
 
 		/*reallocate to a larger buffer now as static buffer can
 			only accomodate upto fixed size*/
-		output_buffer = (char *)realloc(output_buffer, (i + 1));
+		output_buffer = (char *)realloc(output_buffer, (j + 1));
 		if (output_buffer == NULL)
 		{
 			printf("Realloc failed\n");
@@ -487,7 +477,7 @@ void *thread_handler(void *thread_parameter)
 		printf("File open error for appending\n");
 		exit(1);
 	}
-	ret = pthread_mutex_lock(params->mutex);
+	ret = pthread_mutex_lock(&mutex_lock);
 	if (ret)
 	{
 		printf("Mutex lock error before write\n");
@@ -495,16 +485,10 @@ void *thread_handler(void *thread_parameter)
 	}
 
 	int writeret = write(file_fd, output_buffer, strlen(output_buffer));
+
 	if (writeret == -1)
 	{
 		printf("Error write\n");
-		exit(1);
-	}
-
-	ret = pthread_mutex_unlock(params->mutex);
-	if (ret)
-	{
-		printf("Mutex unlock error after read/send\n");
 		exit(1);
 	}
 	close(file_fd);
@@ -527,11 +511,19 @@ void *thread_handler(void *thread_parameter)
 		syslog(LOG_ERR, "Error:  read from file failed = %s. Exiting ", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
+	ret = pthread_mutex_unlock(&mutex_lock);
+	if (ret)
+	{
+		printf("Mutex unlock error after read/send\n");
+		exit(1);
+	}
 
 	// printf("%s\n",send_buffer);
 	//  Step-7 Sending to the client with the accept fd
+	
 	printf("sending\n");
-	int temp_send = send(accept_fd, send_buffer, strlen(send_buffer), 0);
+	int temp_send = send(params->client_fd, send_buffer, strlen(send_buffer), 0);
+	
 	if (temp_send == -1) // generating errors
 	{
 		printf("Error: sending failed\n");
@@ -574,7 +566,6 @@ void exit_func(void)
 		pthread_join(timer_thread, NULL);
 	}
 
-	pthread_mutex_unlock(&mutex_lock);
-	pthread_mutex_destroy(&mutex_lock);
+
 	exit(EXIT_SUCCESS);
 }
