@@ -104,12 +104,7 @@ static void *timer_handler(void *signalno)
 
 	while (1)
 	{
-		/*for (int i = 0; i < 10; i++)
-		{
-			sleep(1);
-			if (process_flag == true)
-				break;
-		}*/
+		
 		sleep(10);
 		/*first store the local time in a buffer*/
 		char time_stamp[200];
@@ -162,8 +157,7 @@ static void *timer_handler(void *signalno)
 			printf("Error write\n");
 			exit(EXIT_FAILURE);
 		}
-		/*update the global packet size variable, as this is used for reading and sending data
-		to client*/
+		/*update the global packet size variable*/
 		data_count += timer_len;
 
 		close(file_fd);
@@ -191,9 +185,6 @@ int main(int argc, char *argv[])
 
 	pthread_mutex_init(&mutex_lock, NULL);
 
-	// Timer configutaion for A6-P1
-	// registering signal handler for timer
-	// signal(SIGALRM, timer_handler);
 
 	// Check the actual value of argv here:
 	if ((argc > 1) && (!strcmp("-d", (char *)argv[1])))
@@ -437,9 +428,7 @@ void *thread_handler(void *thread_parameter)
 			break;
 		}
 
-		/*Detect '\n' or ASCII value
-			10 in the packet.
-		*/
+		/*Detect '\n' */
 		for (i = 0; i < BUFFER_SIZE; i++)
 		{
 
@@ -543,6 +532,14 @@ void *thread_handler(void *thread_parameter)
 
 	return params;
 }
+/*Exit Fucntion*/
+/*
+ * @function	: Exit function for gracefule exit
+ *
+ * @param		:  NULL
+ * @return		:  NULL
+ *
+ */
 void exit_func(void)
 {
 
