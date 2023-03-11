@@ -29,9 +29,7 @@
 struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct aesd_circular_buffer *buffer,
                                                                           size_t char_offset, size_t *entry_offset_byte_rtn)
 {
-    /**
-     * TODO: implement per description
-     */
+    
     size_t total_count = 0;                // total count of all packets from entry point
     size_t size_entry = 0;                 // size of the current index packet
     uint8_t temp_index = buffer->out_offs; // position of read index
