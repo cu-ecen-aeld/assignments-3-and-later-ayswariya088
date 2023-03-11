@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # File Name: finder.sh
 # File Description: This script checks whether the required string exists inside the given file directory
 # Author :Ayswariya Kannan 
