@@ -47,5 +47,5 @@ Code: d2800001 d2800000 d503233f d50323bf (b900003f) <br />
  known as page faults.
 - Shown by the message "Unable to handle kernel NULL pointer dereference".
 - Various register value associated with the fault is shown which is helpful to debug the fault location.
-- This message  faulty_write+0x14/0x20 [faulty] shows us the fault location, it occured at faulty_write function at (0x10) bytes inside it when the 'faulty' module was loaded.
+- This message  "faulty_write+0x14/0x20 [faulty]" shows us the fault location, it occured at faulty_write function at (0x10) bytes inside it when the 'faulty' module was loaded.
 - There was an attempt to deference a null pointer here.Thus the kernal gave the faulty oops message. The outcome of null pointer derefrencing can be seen in objdump. 
