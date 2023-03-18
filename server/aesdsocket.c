@@ -30,9 +30,12 @@
 #define BUFFER_SIZE (100)
 // Modifications for Assignment8
 #define USE_AESD_CHAR_DEVICE 1
-#if (USE_AESD_CHAR_DEVICE == 1)
+
+#ifdef USE_AESD_CHAR_DEVICE
 char *file_path = "/dev/aesdchar";
-#else
+#endif
+
+#ifndef USE_AESD_CHAR_DEVICE
 char *file_path = "/var/tmp/aesdsocketdata";
 #endif
 /*** GLOBALS *********************************************/
@@ -47,7 +50,9 @@ int deamon_flag = 0;
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
+#ifndef USE_AESD_CHAR_DEVICE
 pthread_t timer_thread = (pthread_t)NULL;
+#endif
 void exit_func(void);
 //  Thread parameter structure
 typedef struct
@@ -105,6 +110,7 @@ void signal_handler(int signal_no)
  * @return		:  NULL
  *
  */
+#ifndef USE_AESD_CHAR_DEVICE
 static void *timer_handler(void *signalno)
 {
 
@@ -170,6 +176,7 @@ static void *timer_handler(void *signalno)
 	}
 	pthread_exit(NULL);
 }
+#endif
 /*
  * @function	: main fucntion for Socket based communication
  *
@@ -304,15 +311,18 @@ void socket_connect()
 			syslog(LOG_ERR, "failed to enter deamon mode %s", strerror(errno));
 		}
 	}
+#ifndef USE_AESD_CHAR_DEVICE
 	bool timer_thread_flag = false;
+#endif
 	while (process_flag == false)
 	{
-
+#ifndef USE_AESD_CHAR_DEVICE
 		if (!timer_thread_flag)
 		{
 			pthread_create(&timer_thread, NULL, timer_handler, NULL);
 			timer_thread_flag = true;
 		}
+#endif
 		// step-4 Listening for client
 		int temp_listen = listen(socket_fd, MAX_BACKLOG);
 		if (temp_listen == -1) // generating error
@@ -562,10 +572,11 @@ void exit_func(void)
 			break;
 		}
 	}
+#ifndef USE_AESD_CHAR_DEVICE
 	if (timer_thread)
 	{
 		pthread_join(timer_thread, NULL);
 	}
-
+#endif
 	exit(EXIT_SUCCESS);
 }
