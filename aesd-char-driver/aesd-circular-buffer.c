@@ -65,13 +65,13 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 const char *aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
     const char *ptr = NULL;
-    if (buffer->full == true) // checking for full condition and overwrite data
+    if ((buffer->in_offs == buffer->out_offs) && buffer->full == true) // checking for full condition and overwrite data
     {
-        ptr = buffer->entry[buffer->in_offs].buffptr;  // store location before over writing
-        buffer->entry[buffer->in_offs] = *(add_entry); // adding data by overwriting
-        buffer->in_offs++;                             // incrementing input position
-        buffer->out_offs = buffer->in_offs;            // will be in same position
-       
+        ptr = buffer->entry[buffer->in_offs].buffptr;                                    // store location before over writing
+        buffer->entry[buffer->in_offs] = *(add_entry);                                   // adding data by overwriting
+        buffer->in_offs++;                                                               // incrementing input position
+        buffer->in_offs = (buffer->in_offs) % (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED); // looping circular buffer
+        buffer->out_offs = buffer->in_offs;                                              // will be in same position
     }
     else
     {

@@ -16,6 +16,7 @@
 #include <linux/printk.h>
 #include <linux/types.h>
 #include <linux/cdev.h>
+#include <linux/slab.h>
 #include <linux/fs.h> // file_operations
 #include "aesdchar.h"
 int aesd_major = 0; // use dynamic major
@@ -28,10 +29,13 @@ struct aesd_dev aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
+    struct aesd_dev *dev;
     PDEBUG("open");
     /**
      * TODO: handle open
      */
+    dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
+    filp->private_data = dev;
     return 0;
 }
 
@@ -48,7 +52,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                   loff_t *f_pos)
 {
     ssize_t retval = 0;
-
+    struct aesd_dev *dev;
     // entry and offset for circular buffer
     struct aesd_buffer_entry *read_index = NULL; // var to saveaddress of the read index returned from reading function
     ssize_t read_offset = 0;                     // offset for reading is zero in the case
@@ -84,7 +88,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
           max_read_size = entry_size - read_offset
         */
         if (count > (read_index->size - read_offset))
-            count = read_index > size - read_offset;
+            count = read_index->size - read_offset;
     }
     // now read using copy_to_user
     unread_count = copy_to_user(buf, (read_index->buffptr + read_offset), count);
@@ -102,11 +106,12 @@ error_path:
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                    loff_t *f_pos)
 {
-    ssize_t retval = -ENOMEM;
-    PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
     struct aesd_dev *dev;
     const char *write_entry = NULL;
+    ssize_t retval = -ENOMEM;
     ssize_t unwritten_count = 0;
+    PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
+
     // check arguement errors
     if (count == 0)
         return 0;
@@ -144,7 +149,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         if (dev->circle_buff_entry.buffptr == NULL)
         {
             PDEBUG("krealloc error");
-            goto exit_error;
+            goto error_path_write;
         }
     }
 
@@ -158,8 +163,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (memchr(dev->circle_buff_entry.buffptr, '\n', dev->circle_buff_entry.size))
     {
 
-        write_entry= aesd_circular_buffer_add_entry(&dev->circle_buff, &dev->circle_buff_entry);
-        if(write_entry){
+        write_entry = aesd_circular_buffer_add_entry(&dev->circle_buff, &dev->circle_buff_entry);
+        if (write_entry)
+        {
             kfree(write_entry);
         }
         // clear entry parameters
@@ -227,13 +233,13 @@ int aesd_init_module(void)
 
 void aesd_cleanup_module(void)
 {
+    // free circular buffer entries
+    struct aesd_buffer_entry *entry = NULL;
+    uint8_t index = 0;
     dev_t devno = MKDEV(aesd_major, aesd_minor);
 
     cdev_del(&aesd_device.cdev);
 
-    // free circular buffer entries
-    struct aesd_buffer_entry *entry = NULL;
-    uint8_t index = 0;
     // free the buff_entry buffpte
     kfree(aesd_device.circle_buff_entry.buffptr);
 
