@@ -71,7 +71,7 @@ const char *aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, 
         buffer->entry[buffer->in_offs] = *(add_entry); // adding data by overwriting
         buffer->in_offs++;                             // incrementing input position
         buffer->out_offs = buffer->in_offs;            // will be in same position
-        return;
+       
     }
     else
     {
