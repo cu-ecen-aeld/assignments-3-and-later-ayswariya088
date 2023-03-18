@@ -28,7 +28,13 @@
 
 #define MAX_BACKLOG (10)
 #define BUFFER_SIZE (100)
-
+// Modifications for Assignment8
+#define USE_AESD_CHAR_DEVICE 1
+#if (USE_AESD_CHAR_DEVICE == 1)
+char *file_path = "/dev/aesdchar";
+#else
+char *file_path = "/var/tmp/aesdsocketdata";
+#endif
 /*** GLOBALS *********************************************/
 char *server_port = "9000";					 // given port for communication
 char *file_data = "/var/tmp/aesdsocketdata"; // file to save input string
@@ -49,7 +55,7 @@ typedef struct
 	bool thread_complete;
 	pthread_t thread_id;
 	int client_fd;
-	
+
 } thread_ipc;
 
 // Linked list node
@@ -104,7 +110,7 @@ static void *timer_handler(void *signalno)
 
 	while (1)
 	{
-		
+
 		sleep(10);
 		/*first store the local time in a buffer*/
 		char time_stamp[200];
@@ -184,7 +190,6 @@ int main(int argc, char *argv[])
 	signal(SIGKILL, signal_handler);
 
 	pthread_mutex_init(&mutex_lock, NULL);
-
 
 	// Check the actual value of argv here:
 	if ((argc > 1) && (!strcmp("-d", (char *)argv[1])))
@@ -300,9 +305,9 @@ void socket_connect()
 		}
 	}
 	bool timer_thread_flag = false;
-	while (process_flag==false)
+	while (process_flag == false)
 	{
-		
+
 		if (!timer_thread_flag)
 		{
 			pthread_create(&timer_thread, NULL, timer_handler, NULL);
@@ -339,13 +344,13 @@ void socket_connect()
 
 		// allocating new node for the data
 		datap = (slist_data_t *)malloc(sizeof(slist_data_t));
-		
+
 		SLIST_INSERT_HEAD(&head, datap, entries);
-		
+
 		// Inserting thread parameters now
 		datap->thread_socket.client_fd = accept_fd;
 		datap->thread_socket.thread_complete = false;
-		
+
 		pthread_create(&(datap->thread_socket.thread_id), // the thread id to be created
 					   NULL,							  // the thread attribute to be passed
 					   thread_handler,					  // the thread handler to be executed
@@ -509,10 +514,10 @@ void *thread_handler(void *thread_parameter)
 
 	// printf("%s\n",send_buffer);
 	//  Step-7 Sending to the client with the accept fd
-	
+
 	printf("sending\n");
 	int temp_send = send(params->client_fd, send_buffer, strlen(send_buffer), 0);
-	
+
 	if (temp_send == -1) // generating errors
 	{
 		printf("Error: sending failed\n");
@@ -520,7 +525,6 @@ void *thread_handler(void *thread_parameter)
 		exit(EXIT_FAILURE);
 	}
 	close(file_fd);
-
 
 	params->thread_complete = true;
 
@@ -562,7 +566,6 @@ void exit_func(void)
 	{
 		pthread_join(timer_thread, NULL);
 	}
-
 
 	exit(EXIT_SUCCESS);
 }
