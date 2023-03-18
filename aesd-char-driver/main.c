@@ -26,74 +26,90 @@ MODULE_AUTHOR("Ayswariya Kannan");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;
-
+/*
+ * @function	:  Open call to open the character device
+ *
+ * @param		:  inode:kernel inode structure,filp:kernel file structure passed
+ * @return		:  exit status 0 on success
+ *
+ */
 int aesd_open(struct inode *inode, struct file *filp)
 {
     struct aesd_dev *dev;
     PDEBUG("open");
-    /**
-     * TODO: handle open
-     */
     dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
     filp->private_data = dev;
     return 0;
 }
-
+/*
+ * @function	:  release system call
+ *
+ * @param		:  inode:kernel inode structure,filp:kernel file structure passed
+ * @return		:  exit status 0 on success
+ *
+ */
 int aesd_release(struct inode *inode, struct file *filp)
 {
     PDEBUG("release");
-    /**
-     * TODO: handle release
-     */
+
     return 0;
 }
 
+/*
+ * @function	:  read from file at position pos of size_t count
+ *
+ * @param		:  buf-pointer to store the data read from file,
+ *                 count the number of bytes required to be read
+ *                 f_pos offset location in kernel buffer from where data need to be read.
+ * @return		:  retval :no of bytes successfully read
+ *
+ */
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                   loff_t *f_pos)
 {
     ssize_t retval = 0;
     struct aesd_dev *dev;
     // entry and offset for circular buffer
-    struct aesd_buffer_entry *read_index = NULL; // var to saveaddress of the read index returned from reading function
+    struct aesd_buffer_entry *read_index = NULL; // variable to saveaddress of the read index returned from reading function
     ssize_t read_offset = 0;                     // offset for reading is zero in the case
-    ssize_t unread_count = 0;
+    ssize_t unread_count = 0;                    // unread bytes
 
     PDEBUG("read %zu bytes with offset %lld", count, *f_pos);
 
-    // get the skull device from file structure
+    // get the skull device from the passed file structure
     dev = (struct aesd_dev *)filp->private_data;
 
-    // put error checks here, if count is zero, all other parameters are not null
+    // to check for error
     if (filp == NULL || buf == NULL || f_pos == NULL)
     {
-        return -EFAULT; // bad address
+        return -EFAULT;
     }
 
-    // lock on mutex here, preferrable interruptable, check for error
+    // lock the mutex with interruptable option and check for error
     if (mutex_lock_interruptible(&dev->lock))
     {
-        PDEBUG(KERN_ERR "could not acquire mutex lock");
-        return -ERESTARTSYS; // check this
+        PDEBUG(KERN_ERR "mutex lock unsuccessful");
+        return -ERESTARTSYS; // error condition
     }
-    // find the read entry, and offset for given f_pos
+
+    // find the read index to read from the file
     read_index = aesd_circular_buffer_find_entry_offset_for_fpos(&(dev->circle_buff), *f_pos, &read_offset);
     if (read_index == NULL)
     {
-        goto error_path;
+        goto error_path; // to unlock mutex
     }
     else
     {
 
-        /*check if count is greater that current max read size, then limit
-          max_read_size = entry_size - read_offset
-        */
+        /*check if the count is greater that read size of the buffer,if it the
+        make count = read_size - read_offset*/
         if (count > (read_index->size - read_offset))
             count = read_index->size - read_offset;
     }
-    // now read using copy_to_user
+    //  read using copy_to_user
     unread_count = copy_to_user(buf, (read_index->buffptr + read_offset), count);
 
-    // return whatever is copied and update fpos accordingly
+    // return the read size and update the f_pos
     retval = count - unread_count;
     *f_pos += retval;
 
@@ -103,6 +119,15 @@ error_path:
     return retval;
 }
 
+/*
+ * @function	:  read from file at position pos of size_t count
+ *
+ * @param		:  buf-pointer to store the data read from file,
+ *                 count the number of bytes required to be read
+ *                 f_pos offset location in kernel buffer from where data need to be read.
+ * @return		:  retval :no of bytes successfully read
+ *
+ */
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                    loff_t *f_pos)
 {
@@ -112,13 +137,13 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     ssize_t unwritten_count = 0;
     PDEBUG("write %zu bytes with offset %lld", count, *f_pos);
 
-    // check arguement errors
+    // check for errors
     if (count == 0)
         return 0;
     if (filp == NULL || buf == NULL || f_pos == NULL)
         return -EFAULT;
 
-    // cast the aesd_device from private data
+    // save the aesd_device data from private data
     dev = (struct aesd_dev *)filp->private_data;
 
     // lock the mutex
@@ -128,9 +153,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         return -ERESTARTSYS;
     }
 
-    // allocate the buffer using kmalloc, store address in buffptr
+    // if  buffer size is zero, then allocate the buffer using kmalloc, store address in buffptr
     if (dev->circle_buff_entry.size == 0)
     {
+        PDEBUG("Allocating buffer");
 
         dev->circle_buff_entry.buffptr = kmalloc(count * sizeof(char), GFP_KERNEL);
 
@@ -152,28 +178,26 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
             goto error_path_write;
         }
     }
-
-    // copy data from user space buffer to current command
+    PDEBUG("writing to buffer");
+    // copy data from user space buffer
     unwritten_count = copy_from_user((void *)(dev->circle_buff_entry.buffptr + dev->circle_buff_entry.size),
                                      buf, count);
     retval = count - unwritten_count; // actual bytes written
     dev->circle_buff_entry.size += retval;
 
-    // Check for \n in command, if found add the entry in circular buffer
-    if (memchr(dev->circle_buff_entry.buffptr, '\n', dev->circle_buff_entry.size))
+    // if \n character found means end of packet,thus if found add the entry in circular buffer
+    if (memchr(dev-> circle_buff_entry.buffptr, '\n', dev->circle_buff_entry.size))
     {
 
         write_entry = aesd_circular_buffer_add_entry(&dev->circle_buff, &dev->circle_buff_entry);
         if (write_entry)
         {
-            kfree(write_entry);
+            kfree(write_entry); // free the temporary pointer
         }
         // clear entry parameters
-        dev->circle_buff_entry.buffptr = NULL;
+        dev-> circle_buff_entry.buffptr = NULL;
         dev->circle_buff_entry.size = 0;
     }
-
-    PDEBUG("not doing k_free for now");
 
     // handle errors
 error_path_write:
@@ -203,7 +227,13 @@ static int aesd_setup_cdev(struct aesd_dev *dev)
     }
     return err;
 }
-
+/*
+ * @function	: It is used to register the device and initialize the kernel structure
+ *
+ * @param		: NULL
+ * @return		: return value of init function
+ *
+ */
 int aesd_init_module(void)
 {
     dev_t dev = 0;
@@ -230,7 +260,12 @@ int aesd_init_module(void)
     }
     return result;
 }
-
+/*
+ * @function	: unregister device and deallocated all the kernel data structures
+ * @param		: NULL
+ * @return		: NULL
+ *
+ */
 void aesd_cleanup_module(void)
 {
     // free circular buffer entries
@@ -240,7 +275,7 @@ void aesd_cleanup_module(void)
 
     cdev_del(&aesd_device.cdev);
 
-    // free the buff_entry buffpte
+    // free the circle_buff_entry buffptr
     kfree(aesd_device.circle_buff_entry.buffptr);
 
     AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.circle_buff, index)
