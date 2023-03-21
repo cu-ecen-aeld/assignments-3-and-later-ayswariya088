@@ -28,7 +28,16 @@
 
 #define MAX_BACKLOG (10)
 #define BUFFER_SIZE (100)
+// Modifications for Assignment8
+#define USE_AESD_CHAR_DEVICE 1
 
+#ifdef USE_AESD_CHAR_DEVICE
+char *file_path = "/dev/aesdchar";
+#endif
+
+#ifndef USE_AESD_CHAR_DEVICE
+char *file_path = "/var/tmp/aesdsocketdata";
+#endif
 /*** GLOBALS *********************************************/
 char *server_port = "9000";					 // given port for communication
 char *file_data = "/var/tmp/aesdsocketdata"; // file to save input string
@@ -41,7 +50,9 @@ int deamon_flag = 0;
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
+#ifndef USE_AESD_CHAR_DEVICE
 pthread_t timer_thread = (pthread_t)NULL;
+#endif
 void exit_func(void);
 //  Thread parameter structure
 typedef struct
@@ -49,7 +60,7 @@ typedef struct
 	bool thread_complete;
 	pthread_t thread_id;
 	int client_fd;
-	
+
 } thread_ipc;
 
 // Linked list node
@@ -99,12 +110,13 @@ void signal_handler(int signal_no)
  * @return		:  NULL
  *
  */
+#ifndef USE_AESD_CHAR_DEVICE
 static void *timer_handler(void *signalno)
 {
 
 	while (1)
 	{
-		
+
 		sleep(10);
 		/*first store the local time in a buffer*/
 		char time_stamp[200];
@@ -164,6 +176,7 @@ static void *timer_handler(void *signalno)
 	}
 	pthread_exit(NULL);
 }
+#endif
 /*
  * @function	: main fucntion for Socket based communication
  *
@@ -184,7 +197,6 @@ int main(int argc, char *argv[])
 	signal(SIGKILL, signal_handler);
 
 	pthread_mutex_init(&mutex_lock, NULL);
-
 
 	// Check the actual value of argv here:
 	if ((argc > 1) && (!strcmp("-d", (char *)argv[1])))
@@ -299,15 +311,18 @@ void socket_connect()
 			syslog(LOG_ERR, "failed to enter deamon mode %s", strerror(errno));
 		}
 	}
+#ifndef USE_AESD_CHAR_DEVICE
 	bool timer_thread_flag = false;
-	while (process_flag==false)
+#endif
+	while (process_flag == false)
 	{
-		
+#ifndef USE_AESD_CHAR_DEVICE
 		if (!timer_thread_flag)
 		{
 			pthread_create(&timer_thread, NULL, timer_handler, NULL);
 			timer_thread_flag = true;
 		}
+#endif
 		// step-4 Listening for client
 		int temp_listen = listen(socket_fd, MAX_BACKLOG);
 		if (temp_listen == -1) // generating error
@@ -339,13 +354,13 @@ void socket_connect()
 
 		// allocating new node for the data
 		datap = (slist_data_t *)malloc(sizeof(slist_data_t));
-		
+
 		SLIST_INSERT_HEAD(&head, datap, entries);
-		
+
 		// Inserting thread parameters now
 		datap->thread_socket.client_fd = accept_fd;
 		datap->thread_socket.thread_complete = false;
-		
+
 		pthread_create(&(datap->thread_socket.thread_id), // the thread id to be created
 					   NULL,							  // the thread attribute to be passed
 					   thread_handler,					  // the thread handler to be executed
@@ -509,10 +524,10 @@ void *thread_handler(void *thread_parameter)
 
 	// printf("%s\n",send_buffer);
 	//  Step-7 Sending to the client with the accept fd
-	
+
 	printf("sending\n");
 	int temp_send = send(params->client_fd, send_buffer, strlen(send_buffer), 0);
-	
+
 	if (temp_send == -1) // generating errors
 	{
 		printf("Error: sending failed\n");
@@ -520,7 +535,6 @@ void *thread_handler(void *thread_parameter)
 		exit(EXIT_FAILURE);
 	}
 	close(file_fd);
-
 
 	params->thread_complete = true;
 
@@ -558,11 +572,11 @@ void exit_func(void)
 			break;
 		}
 	}
+#ifndef USE_AESD_CHAR_DEVICE
 	if (timer_thread)
 	{
 		pthread_join(timer_thread, NULL);
 	}
-
-
+#endif
 	exit(EXIT_SUCCESS);
 }

@@ -29,11 +29,15 @@
 struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct aesd_circular_buffer *buffer,
                                                                           size_t char_offset, size_t *entry_offset_byte_rtn)
 {
-    
+
     size_t total_count = 0;                // total count of all packets from entry point
     size_t size_entry = 0;                 // size of the current index packet
     uint8_t temp_index = buffer->out_offs; // position of read index
-
+                                           // To check if buffer is empty
+    if ((buffer->full == false) && (buffer->in_offs == buffer->out_offs))
+    {
+        return NULL;
+    }
     while (1)
     {
         size_entry = buffer->entry[temp_index].size; // size of current index
@@ -58,14 +62,16 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
  * Any necessary locking must be handled by the caller
  * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
  */
-void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
+const char *aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
-    if (buffer->full == true) // checking for full condition and overwrite data
+    const char *ptr = NULL;
+    if ((buffer->in_offs == buffer->out_offs) && buffer->full == true) // checking for full condition and overwrite data
     {
-        buffer->entry[buffer->in_offs] = *(add_entry); // adding data by overwriting
-        buffer->in_offs++;                             // incrementing input position
-        buffer->out_offs++;                            // incrementing output position
-        return;
+        ptr = buffer->entry[buffer->in_offs].buffptr;                                    // store location before over writing
+        buffer->entry[buffer->in_offs] = *(add_entry);                                   // adding data by overwriting
+        buffer->in_offs++;                                                               // incrementing input position
+        buffer->in_offs = (buffer->in_offs) % (AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED); // looping circular buffer
+        buffer->out_offs = buffer->in_offs;                                              // will be in same position
     }
     else
     {
@@ -79,6 +85,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
         else
             buffer->full = false;
     }
+    return ptr;
 }
 
 /**
