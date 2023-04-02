@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include "queue.h"
+#include "./../aesd-char-driver/aesd_ioctl.h"
 
 #define MAX_BACKLOG (10)
 #define BUFFER_SIZE (100)
@@ -47,6 +48,7 @@ int data_count = 0;							 // for counting the data packet bytes
 int file_fd = 0;							 // file as defined in path to be created
 bool process_flag = false;
 int deamon_flag = 0;
+int msg_flag=0;
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
@@ -95,7 +97,7 @@ void signal_handler(int signal_no)
 		syslog(LOG_DEBUG, "Caught the signal, exiting...");
 		shutdown(socket_fd, SHUT_RDWR);
 		process_flag = true;
-		unlink(file_data);
+		unlink(file_path);
 		close(accept_fd);
 		close(socket_fd);
 	}
@@ -143,7 +145,7 @@ static void *timer_handler(void *signalno)
 
 		// writing to file
 
-		file_fd = open(file_data, O_APPEND | O_WRONLY);
+		file_fd = open(file_path, O_APPEND | O_WRONLY);
 		if (file_fd == -1)
 		{
 			printf("Error opening\n");
@@ -288,7 +290,7 @@ void socket_connect()
 	}
 
 	// Create file
-	file_fd = creat(file_data, 0644);
+	file_fd = creat(file_path, 0644);
 	if (file_fd == -1)
 	{
 		printf("Error while creating file \n");
@@ -402,6 +404,7 @@ void socket_connect()
  */
 void *thread_handler(void *thread_parameter)
 {
+	//msg_flag=0;
 
 	// Package storage related variables
 	bool packet_comp = false;
@@ -414,7 +417,7 @@ void *thread_handler(void *thread_parameter)
 
 	// get the parameter of the thread
 	thread_ipc *params = (thread_ipc *)thread_parameter;
-
+start_thread:
 	// For test
 	output_buffer = (char *)malloc(sizeof(char) * BUFFER_SIZE);
 	if (output_buffer == NULL)
@@ -472,10 +475,53 @@ void *thread_handler(void *thread_parameter)
 
 		memset(buff, 0, BUFFER_SIZE);
 	}
+#ifdef USE_AESD_CHAR_DEVICE
+	
 
+	if (strncmp(output_buffer, "AESDCHAR_IOCSEEKTO:", strlen("AESDCHAR_IOCSEEKTO:")) == 0)
+	{
+		// Parse command and argument
+		struct aesd_seekto seekto;
+		char *token = strtok(output_buffer + strlen("AESDCHAR_IOCSEEKTO:"), ",");
+		if (token == NULL)
+		{
+			syslog(LOG_DEBUG,"Error: Invalid write command\n");
+			exit_func();
+		}
+		seekto.write_cmd = strtoul(token, NULL, 10);
+		token = strtok(NULL, ",");
+		if (token == NULL)
+		{
+			syslog(LOG_DEBUG, "Error: Invalid write command\n");
+			exit_func();
+		}
+		seekto.write_cmd_offset = strtoul(token, NULL, 10);
+
+		syslog(LOG_DEBUG, "Command found:%s :%u, %u\n", "AESDCHAR_IOCSEEKTO",seekto.write_cmd,seekto.write_cmd_offset);
+		msg_flag=1;
+		output_buffer=NULL;
+		int file_fd = open(file_path, O_CREAT | O_APPEND | O_RDWR);
+		if (file_fd == -1)
+		{
+			printf("File open error for appending\n");
+			exit(1);
+		}
+
+		if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto)!=0)
+		{
+			syslog(LOG_DEBUG,"ioctl failed\n");
+			exit_func();
+		}
+		close(file_fd);
+	}
+	else{
+		if(msg_flag==0)
+		goto start_thread;
+	}
+#endif
 	// Step-6 Write the data received from client to the server
 
-	int file_fd = open(file_data, O_APPEND | O_WRONLY);
+	int file_fd = open(file_path, O_APPEND | O_WRONLY);
 	if (file_fd == -1)
 	{
 		printf("File open error for appending\n");
@@ -497,7 +543,7 @@ void *thread_handler(void *thread_parameter)
 	}
 	close(file_fd);
 
-	file_fd = open(file_data, O_RDONLY);
+	file_fd = open(file_path, O_RDONLY);
 	if (file_fd == -1)
 	{
 		printf("File open error for reading\n");
@@ -557,7 +603,7 @@ void *thread_handler(void *thread_parameter)
 void exit_func(void)
 {
 
-	unlink(file_data);
+	unlink(file_path);
 	close(file_fd);
 	close(accept_fd);
 	close(socket_fd);
