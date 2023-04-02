@@ -48,7 +48,7 @@ int data_count = 0;							 // for counting the data packet bytes
 int file_fd = 0;							 // file as defined in path to be created
 bool process_flag = false;
 int deamon_flag = 0;
-int msg_flag=0;
+
 //  Function prototypes
 void socket_connect(void);
 void *thread_handler(void *thread_parameter);
@@ -417,7 +417,7 @@ void *thread_handler(void *thread_parameter)
 
 	// get the parameter of the thread
 	thread_ipc *params = (thread_ipc *)thread_parameter;
-start_thread:
+
 	// For test
 	output_buffer = (char *)malloc(sizeof(char) * BUFFER_SIZE);
 	if (output_buffer == NULL)
@@ -498,8 +498,7 @@ start_thread:
 		seekto.write_cmd_offset = strtoul(token, NULL, 10);
 
 		syslog(LOG_DEBUG, "Command found:%s :%u, %u\n", "AESDCHAR_IOCSEEKTO",seekto.write_cmd,seekto.write_cmd_offset);
-		msg_flag=1;
-		output_buffer=NULL;
+		
 		int file_fd = open(file_path, O_CREAT | O_APPEND | O_RDWR);
 		if (file_fd == -1)
 		{
@@ -514,13 +513,10 @@ start_thread:
 		}
 		close(file_fd);
 	}
-	else{
-		if(msg_flag==0)
-		goto start_thread;
-	}
+	
 #endif
 	// Step-6 Write the data received from client to the server
-
+else{
 	int file_fd = open(file_path, O_APPEND | O_WRONLY);
 	if (file_fd == -1)
 	{
@@ -568,7 +564,7 @@ start_thread:
 		exit(1);
 	}
 
-	// printf("%s\n",send_buffer);
+	printf("%s\n",send_buffer);
 	//  Step-7 Sending to the client with the accept fd
 
 	printf("sending\n");
@@ -583,7 +579,7 @@ start_thread:
 	close(file_fd);
 
 	params->thread_complete = true;
-
+}
 	close(params->client_fd);
 
 	// Free the allocated buffer

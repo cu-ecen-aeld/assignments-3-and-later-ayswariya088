@@ -302,9 +302,11 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     case AESDCHAR_IOCSEEKTO:
        
         if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto))) // check if command from userspace copied to kernel space
-            retval = -EFAULT;                                                  // if it returns non zero means error
+           { PDEBUG("Error while copying from userspace\n");
+            retval = -EFAULT;  }                                                // if it returns non zero means error
         else
         {
+            PDEBUG("Implementing AESDCHAR_IOCSEEKTO\n");
             retval = aesd_adjust_file_offset(filp, seekto.write_cmd, seekto.write_cmd_offset);
         }
         break;
