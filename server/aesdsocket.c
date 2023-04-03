@@ -97,7 +97,7 @@ void signal_handler(int signal_no)
 		syslog(LOG_DEBUG, "Caught the signal, exiting...");
 		shutdown(socket_fd, SHUT_RDWR);
 		process_flag = true;
-		unlink(file_path);
+		//unlink(file_path);
 		close(accept_fd);
 		close(socket_fd);
 	}
@@ -599,7 +599,7 @@ else{
 void exit_func(void)
 {
 
-	unlink(file_path);
+	//unlink(file_path);
 	close(file_fd);
 	close(accept_fd);
 	close(socket_fd);
