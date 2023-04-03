@@ -28,24 +28,23 @@
 #include "./../aesd-char-driver/aesd_ioctl.h"
 
 #define MAX_BACKLOG (10)
-#define BUFFER_SIZE (100)
+#define BUFFER_SIZE (1024)
 // Modifications for Assignment8
 #define USE_AESD_CHAR_DEVICE 1
 
 #ifdef USE_AESD_CHAR_DEVICE
-char *file_path = "/dev/aesdchar";
+char *file_path = "/dev/aesdchar"; // file to save input string
 #endif
 
 #ifndef USE_AESD_CHAR_DEVICE
 char *file_path = "/var/tmp/aesdsocketdata";
 #endif
 /*** GLOBALS *********************************************/
-char *server_port = "9000";					 // given port for communication
-char *file_data = "/var/tmp/aesdsocketdata"; // file to save input string
-int socket_fd = 0;							 // socket file descriptor
-int accept_fd = 0;							 // client accept file descriptor
-int data_count = 0;							 // for counting the data packet bytes
-int file_fd = 0;							 // file as defined in path to be created
+char *server_port = "9000"; // given port for communication
+int socket_fd = 0;			// socket file descriptor
+int accept_fd = 0;			// client accept file descriptor
+int data_count = 0;			// for counting the data packet bytes
+int file_fd = 0;			// file as defined in path to be created
 bool process_flag = false;
 int deamon_flag = 0;
 
@@ -97,7 +96,7 @@ void signal_handler(int signal_no)
 		syslog(LOG_DEBUG, "Caught the signal, exiting...");
 		shutdown(socket_fd, SHUT_RDWR);
 		process_flag = true;
-		//unlink(file_path);
+		// unlink(file_path);
 		close(accept_fd);
 		close(socket_fd);
 	}
@@ -404,7 +403,6 @@ void socket_connect()
  */
 void *thread_handler(void *thread_parameter)
 {
-	//msg_flag=0;
 
 	// Package storage related variables
 	bool packet_comp = false;
@@ -413,7 +411,7 @@ void *thread_handler(void *thread_parameter)
 	int ret = 0;
 	char buff[BUFFER_SIZE] = {0};
 	char *output_buffer = NULL;
-	char *send_buffer = NULL;
+	// char *send_buffer = NULL;
 
 	// get the parameter of the thread
 	thread_ipc *params = (thread_ipc *)thread_parameter;
@@ -471,120 +469,110 @@ void *thread_handler(void *thread_parameter)
 			exit(1);
 		}
 
-		strncat(output_buffer, buff, i + 1);
+		strncat(output_buffer, buff, j + 1);
 
 		memset(buff, 0, BUFFER_SIZE);
 	}
-#ifdef USE_AESD_CHAR_DEVICE
-	
-
-	if (strncmp(output_buffer, "AESDCHAR_IOCSEEKTO:", strlen("AESDCHAR_IOCSEEKTO:")) == 0)
-	{
-		// Parse command and argument
-		struct aesd_seekto seekto;
-		char *token = strtok(output_buffer + strlen("AESDCHAR_IOCSEEKTO:"), ",");
-		if (token == NULL)
-		{
-			syslog(LOG_DEBUG,"Error: Invalid write command\n");
-			exit_func();
-		}
-		seekto.write_cmd = strtoul(token, NULL, 10);
-		token = strtok(NULL, ",");
-		if (token == NULL)
-		{
-			syslog(LOG_DEBUG, "Error: Invalid write command\n");
-			exit_func();
-		}
-		seekto.write_cmd_offset = strtoul(token, NULL, 10);
-
-		syslog(LOG_DEBUG, "Command found:%s :%u, %u\n", "AESDCHAR_IOCSEEKTO",seekto.write_cmd,seekto.write_cmd_offset);
-		
-		int file_fd = open(file_path, O_CREAT | O_APPEND | O_RDWR);
-		if (file_fd == -1)
-		{
-			printf("File open error for appending\n");
-			exit(1);
-		}
-
-		if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto)!=0)
-		{
-			syslog(LOG_DEBUG,"ioctl failed\n");
-			exit_func();
-		}
-		close(file_fd);
-	}
-	
-#endif
-	// Step-6 Write the data received from client to the server
-else{
-	int file_fd = open(file_path, O_APPEND | O_WRONLY);
+	int file_fd = open(file_path, O_CREAT | O_APPEND | O_RDWR);
 	if (file_fd == -1)
 	{
 		printf("File open error for appending\n");
 		exit(1);
 	}
-	ret = pthread_mutex_lock(&mutex_lock);
-	if (ret)
-	{
-		printf("Mutex lock error before write\n");
-		exit(1);
-	}
 
-	int writeret = write(file_fd, output_buffer, strlen(output_buffer));
+#ifdef USE_AESD_CHAR_DEVICE
 
-	if (writeret == -1)
+	while (1)
 	{
-		printf("Error write\n");
-		exit(1);
+		if (strncmp(output_buffer, "AESDCHAR_IOCSEEKTO:", strlen("AESDCHAR_IOCSEEKTO:")) == 0)
+		{
+			printf("seekto command found \n");
+
+			struct aesd_seekto seekto;
+			char *token = strtok(output_buffer + strlen("AESDCHAR_IOCSEEKTO:"), ",");
+			if (token == NULL)
+			{
+				syslog(LOG_DEBUG, "Error: Invalid write command\n");
+				exit_func();
+			}
+			seekto.write_cmd = strtoul(token, NULL, 10);
+			token = strtok(NULL, ",");
+			if (token == NULL)
+			{
+				syslog(LOG_DEBUG, "Error: Invalid write command\n");
+				exit_func();
+			}
+			seekto.write_cmd_offset = strtoul(token, NULL, 10);
+
+			syslog(LOG_DEBUG, "Command found:%s :%u, %u\n", "AESDCHAR_IOCSEEKTO", seekto.write_cmd, seekto.write_cmd_offset);
+
+			if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto) != 0)
+			{
+				syslog(LOG_DEBUG, "ioctl failed\n");
+				exit_func();
+			}
+			else
+			{
+				syslog(LOG_DEBUG, "ioctl successful\n");
+				printf("ioctl successful\n");
+			}
+		}
+
+#endif
+		// Step-6 Write the data received from client to the server
+		else
+		{
+
+			ret = pthread_mutex_lock(&mutex_lock);
+
+			if (ret)
+			{
+				printf("Mutex lock error before write\n");
+				exit(1);
+			}
+			syslog(LOG_DEBUG, "writing to file \n");
+			printf("output buffer is %s\n", output_buffer);
+			int writeret = write(file_fd, output_buffer, strlen(output_buffer));
+
+			if (writeret == -1)
+			{
+				printf("Error write\n");
+				exit(1);
+			}
+
+			ret = pthread_mutex_unlock(&mutex_lock);
+
+			if (ret)
+			{
+				printf("Mutex unlock error after read/send\n");
+				exit(1);
+			}
+		}
+		break;
 	}
+	// Step-7 Reading from the file & Sending to the client with the accept fd
+	char send_buffer[BUFFER_SIZE];
+	memset(&send_buffer[0], 0, BUFFER_SIZE);
+	syslog(LOG_DEBUG, "reading from file n");
+	while (1)
+	{
+
+		ret = read(file_fd, send_buffer, BUFFER_SIZE);
+
+		if (ret <= 0)
+			break;
+
+		write(params->client_fd, send_buffer, ret);
+	}
+	printf("send buffer is %s\n", send_buffer);
+
+	// exit_thread:
 	close(file_fd);
-
-	file_fd = open(file_path, O_RDONLY);
-	if (file_fd == -1)
-	{
-		printf("File open error for reading\n");
-		exit(1);
-	}
-	// Step-7 Reading from the file
-	send_buffer = (char *)malloc(sizeof(char) * (data_count + 1));
-	memset(send_buffer, 0, data_count + 1);
-
-	int temp_read = read(file_fd, send_buffer, data_count + 1);
-
-	if (temp_read == -1) // generating errors
-	{
-		printf("Error: reading failed\n");
-		syslog(LOG_ERR, "Error:  read from file failed = %s. Exiting ", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-	ret = pthread_mutex_unlock(&mutex_lock);
-	if (ret)
-	{
-		printf("Mutex unlock error after read/send\n");
-		exit(1);
-	}
-
-	printf("%s\n",send_buffer);
-	//  Step-7 Sending to the client with the accept fd
-
-	printf("sending\n");
-	int temp_send = send(params->client_fd, send_buffer, strlen(send_buffer), 0);
-
-	if (temp_send == -1) // generating errors
-	{
-		printf("Error: sending failed\n");
-		syslog(LOG_ERR, "Error:  sending to client failed= %s. Exiting ", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-	close(file_fd);
-
 	params->thread_complete = true;
-}
-	close(params->client_fd);
 
+	close(params->client_fd);
 	// Free the allocated buffer
 	free(output_buffer);
-	free(send_buffer);
 
 	return params;
 }
@@ -599,7 +587,7 @@ else{
 void exit_func(void)
 {
 
-	//unlink(file_path);
+	// unlink(file_path);
 	close(file_fd);
 	close(accept_fd);
 	close(socket_fd);
