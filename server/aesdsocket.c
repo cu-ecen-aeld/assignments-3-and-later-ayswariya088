@@ -473,7 +473,7 @@ void *thread_handler(void *thread_parameter)
 
 		memset(buff, 0, BUFFER_SIZE);
 	}
-	int file_fd = open(file_path, O_CREAT | O_APPEND | O_RDWR);
+	int file_fd = open(file_path, O_CREAT | O_APPEND | O_RDWR); //opening file path 
 	if (file_fd == -1)
 	{
 		printf("File open error for appending\n");
@@ -557,14 +557,14 @@ void *thread_handler(void *thread_parameter)
 	memset(&send_buffer[0], 0, BUFFER_SIZE);
 	syslog(LOG_DEBUG, "reading from file n");
 	while (1)
-	{
+	{ // for reading and writing to socket
 
 		ret = read(file_fd, send_buffer, BUFFER_SIZE);
-
+		// read until no characters left
 		if (ret <= 0)
 			break;
 
-		write(params->client_fd, send_buffer, ret);
+		write(params->client_fd, send_buffer, ret); // send back to socket
 	}
 	// printf("send buffer is %s\n", send_buffer);
 
