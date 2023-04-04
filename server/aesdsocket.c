@@ -564,7 +564,7 @@ void *thread_handler(void *thread_parameter)
 		if (ret <= 0)
 			break;
 
-		write(params->client_fd, send_buffer, ret); // send back to socket
+		send(params->client_fd, send_buffer, strlen(send_buffer), 0); // send back to socket
 	}
 	// printf("send buffer is %s\n", send_buffer);
 
