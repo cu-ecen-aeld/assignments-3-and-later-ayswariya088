@@ -48,6 +48,7 @@ FILE *writefile=fopen(argv[WRTFILE],"wb"); //opening the file with access of wri
     }
 
 }
+
 closelog(); //closing all logs
 return 0;
 
