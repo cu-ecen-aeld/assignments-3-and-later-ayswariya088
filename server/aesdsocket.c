@@ -480,11 +480,10 @@ void *thread_handler(void *thread_parameter)
 		exit(1);
 	}
 
-#ifdef USE_AESD_CHAR_DEVICE
-
 	while (1)
 	{
-		if (strncmp(output_buffer, "AESDCHAR_IOCSEEKTO:", strlen("AESDCHAR_IOCSEEKTO:")) == 0)
+
+		if (strncmp(output_buffer, "AESDCHAR_IOCSEEKTO:", strlen("AESDCHAR_IOCSEEKTO:")) == 0) // checking for command
 		{
 			printf("seekto command found \n");
 
@@ -495,6 +494,7 @@ void *thread_handler(void *thread_parameter)
 				syslog(LOG_DEBUG, "Error: Invalid write command\n");
 				exit_func();
 			}
+			// extracting write command and write command offset
 			seekto.write_cmd = strtoul(token, NULL, 10);
 			token = strtok(NULL, ",");
 			if (token == NULL)
@@ -505,7 +505,7 @@ void *thread_handler(void *thread_parameter)
 			seekto.write_cmd_offset = strtoul(token, NULL, 10);
 
 			syslog(LOG_DEBUG, "Command found:%s :%u, %u\n", "AESDCHAR_IOCSEEKTO", seekto.write_cmd, seekto.write_cmd_offset);
-
+			// check for successful ioctl command
 			if (ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto) != 0)
 			{
 				syslog(LOG_DEBUG, "ioctl failed\n");
@@ -518,20 +518,21 @@ void *thread_handler(void *thread_parameter)
 			}
 		}
 
-#endif
-		// Step-6 Write the data received from client to the server
+		// Step-6 Write the data received from client to the server if its not AESDCHAR_IOCSEEKTO command
 		else
 		{
 #ifndef USE_AESD_CHAR_DEVICE
 			ret = pthread_mutex_lock(&mutex_lock);
-#endif
+
 			if (ret)
 			{
 				printf("Mutex lock error before write\n");
 				exit(1);
 			}
+
+#endif
 			syslog(LOG_DEBUG, "writing to file \n");
-			printf("output buffer is %s\n", output_buffer);
+			// printf("output buffer is %s\n", output_buffer);
 			int writeret = write(file_fd, output_buffer, strlen(output_buffer));
 
 			if (writeret == -1)
@@ -541,13 +542,13 @@ void *thread_handler(void *thread_parameter)
 			}
 #ifndef USE_AESD_CHAR_DEVICE
 			ret = pthread_mutex_unlock(&mutex_lock);
-#endif
 
 			if (ret)
 			{
 				printf("Mutex unlock error after read/send\n");
 				exit(1);
 			}
+#endif
 		}
 		break;
 	}
@@ -565,7 +566,7 @@ void *thread_handler(void *thread_parameter)
 
 		write(params->client_fd, send_buffer, ret);
 	}
-	printf("send buffer is %s\n", send_buffer);
+	// printf("send buffer is %s\n", send_buffer);
 
 	// exit_thread:
 	close(file_fd);
