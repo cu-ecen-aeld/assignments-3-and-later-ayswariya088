@@ -522,9 +522,9 @@ void *thread_handler(void *thread_parameter)
 		// Step-6 Write the data received from client to the server
 		else
 		{
-
+#ifndef USE_AESD_CHAR_DEVICE
 			ret = pthread_mutex_lock(&mutex_lock);
-
+#endif
 			if (ret)
 			{
 				printf("Mutex lock error before write\n");
@@ -539,8 +539,9 @@ void *thread_handler(void *thread_parameter)
 				printf("Error write\n");
 				exit(1);
 			}
-
+#ifndef USE_AESD_CHAR_DEVICE
 			ret = pthread_mutex_unlock(&mutex_lock);
+#endif
 
 			if (ret)
 			{
